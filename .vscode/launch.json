@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Nexus Ops (Chrome)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["-d", "chrome", "--web-port", "3000"]
+    },
+    {
+      "name": "Nexus Ops (Web Server)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["-d", "web-server", "--web-port", "3000", "--web-hostname", "0.0.0.0"]
+    }
+  ]
+}
