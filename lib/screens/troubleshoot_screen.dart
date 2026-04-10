@@ -357,8 +357,8 @@ class _TroubleshootScreenState extends State<TroubleshootScreen>
                   if (_isDone)
                     OutlinedButton.icon(
                       onPressed: _exportLogs,
-                      icon: const Icon(Icons.download, size: 16),
-                      label: const Text('Export Logs'),
+                      icon: const Icon(Icons.share, size: 16),
+                      label: const Text('Share'),
                     ),
                 ],
               ),
