@@ -67,55 +67,42 @@ class _AMOverviewPage extends StatelessWidget {
       child: Column(
         children: [
           // KPI row
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  label: 'Open Incidents',
-                  value: '${app.openCount}',
-                  subtitle: '${app.criticalCount} critical',
-                  accentColor: app.openCount > 5
-                      ? AppColors.error
-                      : AppColors.warning,
-                  valueColor:
-                      app.openCount > 5 ? AppColors.error : null,
-                  icon: Icons.warning_amber,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Resolved Today',
-                  value: '${statuses.map((s) => s.resolvedToday).fold(0, (a, b) => a + b)}',
-                  subtitle: 'across ${statuses.length} executives',
-                  accentColor: AppColors.success,
-                  icon: Icons.check_circle,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Avg Resolution',
-                  value: '${app.avgResolutionHours.toStringAsFixed(1)}h',
-                  subtitle: 'SLA target: 4h',
-                  accentColor: AppColors.info,
-                  icon: Icons.timer,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'SLA Compliance',
-                  value: '${app.slaCompliancePercent.toStringAsFixed(0)}%',
-                  subtitle: 'Target: 95%',
-                  accentColor: app.slaCompliancePercent >= 90
-                      ? AppColors.success
-                      : AppColors.warning,
-                  icon: Icons.verified,
-                ),
-              ),
-            ],
-          ),
+          KpiGrid(cards: [
+            StatCard(
+              label: 'Open Incidents',
+              value: '${app.openCount}',
+              subtitle: '${app.criticalCount} critical',
+              accentColor: app.openCount > 5
+                  ? AppColors.error
+                  : AppColors.warning,
+              valueColor:
+                  app.openCount > 5 ? AppColors.error : null,
+              icon: Icons.warning_amber,
+            ),
+            StatCard(
+              label: 'Resolved Today',
+              value: '${statuses.map((s) => s.resolvedToday).fold(0, (a, b) => a + b)}',
+              subtitle: 'across ${statuses.length} executives',
+              accentColor: AppColors.success,
+              icon: Icons.check_circle,
+            ),
+            StatCard(
+              label: 'Avg Resolution',
+              value: '${app.avgResolutionHours.toStringAsFixed(1)}h',
+              subtitle: 'SLA target: 4h',
+              accentColor: AppColors.info,
+              icon: Icons.timer,
+            ),
+            StatCard(
+              label: 'SLA Compliance',
+              value: '${app.slaCompliancePercent.toStringAsFixed(0)}%',
+              subtitle: 'Target: 95%',
+              accentColor: app.slaCompliancePercent >= 90
+                  ? AppColors.success
+                  : AppColors.warning,
+              icon: Icons.verified,
+            ),
+          ]),
           const SizedBox(height: 20),
           // Team status
           SectionHeader(
@@ -126,16 +113,29 @@ class _AMOverviewPage extends StatelessWidget {
               child: const Text('View All'),
             ),
           ),
-          Row(
-            children: statuses
-                .map((s) => Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: _ExecutiveCard(status: s),
-                      ),
-                    ))
-                .toList(),
-          ),
+          LayoutBuilder(builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 700;
+            if (isMobile) {
+              return Column(
+                children: statuses
+                    .map((s) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _ExecutiveCard(status: s),
+                        ))
+                    .toList(),
+              );
+            }
+            return Row(
+              children: statuses
+                  .map((s) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: _ExecutiveCard(status: s),
+                        ),
+                      ))
+                  .toList(),
+            );
+          }),
           const SizedBox(height: 20),
           // Critical incidents
           SectionHeader(
@@ -573,39 +573,29 @@ class _AMTeamPage extends StatelessWidget {
       subtitle: '${statuses.length} executives on shift',
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  label: 'Active Executives',
-                  value: '${statuses.length}',
-                  subtitle: 'On shift now',
-                  accentColor: AppColors.success,
-                  icon: Icons.people,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Resolved Today',
-                  value: '$totalResolved',
-                  subtitle: 'Team total',
-                  accentColor: AppColors.info,
-                  icon: Icons.check_circle,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Avg Per Executive',
-                  value: '${(totalResolved / statuses.length).toStringAsFixed(1)}',
-                  subtitle: 'Incidents resolved',
-                  accentColor: AppColors.primary,
-                  icon: Icons.trending_up,
-                ),
-              ),
-            ],
-          ),
+          KpiGrid(cards: [
+            StatCard(
+              label: 'Active Executives',
+              value: '${statuses.length}',
+              subtitle: 'On shift now',
+              accentColor: AppColors.success,
+              icon: Icons.people,
+            ),
+            StatCard(
+              label: 'Resolved Today',
+              value: '$totalResolved',
+              subtitle: 'Team total',
+              accentColor: AppColors.info,
+              icon: Icons.check_circle,
+            ),
+            StatCard(
+              label: 'Avg Per Executive',
+              value: '${(totalResolved / statuses.length).toStringAsFixed(1)}',
+              subtitle: 'Incidents resolved',
+              accentColor: AppColors.primary,
+              icon: Icons.trending_up,
+            ),
+          ]),
           const SizedBox(height: 20),
           const SectionHeader(title: 'Executive Status Board'),
           ...statuses.map((s) => _TeamMemberCard(status: s)),
@@ -778,45 +768,32 @@ class _AMAnalyticsPage extends StatelessWidget {
       child: Column(
         children: [
           // KPI row
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  label: 'Incidents This Month',
-                  value: '79',
-                  subtitle: '+12% vs last month',
-                  accentColor: AppColors.warning,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Avg Resolution Time',
-                  value: '2.3h',
-                  subtitle: 'Target: 4h ✓',
-                  accentColor: AppColors.success,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'After-Hours Incidents',
-                  value: '34',
-                  subtitle: '43% of total',
-                  accentColor: AppColors.error,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Extended Hours Booked',
-                  value: '16',
-                  subtitle: 'Avg 5.8h per session',
-                  accentColor: AppColors.info,
-                ),
-              ),
-            ],
-          ),
+          KpiGrid(cards: [
+            StatCard(
+              label: 'Incidents This Month',
+              value: '79',
+              subtitle: '+12% vs last month',
+              accentColor: AppColors.warning,
+            ),
+            StatCard(
+              label: 'Avg Resolution Time',
+              value: '2.3h',
+              subtitle: 'Target: 4h ✓',
+              accentColor: AppColors.success,
+            ),
+            StatCard(
+              label: 'After-Hours Incidents',
+              value: '34',
+              subtitle: '43% of total',
+              accentColor: AppColors.error,
+            ),
+            StatCard(
+              label: 'Extended Hours Booked',
+              value: '16',
+              subtitle: 'Avg 5.8h per session',
+              accentColor: AppColors.info,
+            ),
+          ]),
           const SizedBox(height: 20),
           // Incident trend chart
           Row(

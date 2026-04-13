@@ -48,6 +48,8 @@ class _AppShellState extends State<AppShell> {
         onDestinationSelected: (i) => setState(() => _selectedIndex = i),
         backgroundColor: AppColors.card,
         elevation: 8,
+        indicatorColor: AppColors.primary.withValues(alpha: 0.15),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: widget.items
             .map((item) => NavigationDestination(
                   icon: Icon(item.icon),
@@ -335,48 +337,87 @@ class PageWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 900;
+    final hPad = isMobile ? 16.0 : 28.0;
+    final vPadTop = isMobile ? 14.0 : 20.0;
+    final vPadBot = isMobile ? 12.0 : 16.0;
+
+    Widget header;
+    if (isMobile && actions != null && actions!.isNotEmpty) {
+      header = Container(
+        color: AppColors.card,
+        padding: EdgeInsets.fromLTRB(hPad, vPadTop, hPad, vPadBot),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: isMobile ? 18 : 22,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            if (subtitle != null)
+              Text(
+                subtitle!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: actions!),
+            ),
+          ],
+        ),
+      );
+    } else {
+      header = Container(
+        color: AppColors.card,
+        padding: EdgeInsets.fromLTRB(hPad, vPadTop, hPad, vPadBot),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: isMobile ? 18 : 22,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (actions != null) ...actions!,
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
-        Container(
-          color: AppColors.card,
-          padding: const EdgeInsets.fromLTRB(28, 20, 28, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    if (subtitle != null)
-                      Text(
-                        subtitle!,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              if (actions != null) ...actions!,
-            ],
-          ),
-        ),
+        header,
         const Divider(height: 1),
-        // Content
         Expanded(
           child: scrollable
               ? SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.all(isMobile ? 16 : 24),
                   child: child,
                 )
               : child,

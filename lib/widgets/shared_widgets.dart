@@ -30,54 +30,74 @@ class StatCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border(top: BorderSide(color: accent, width: 3)),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: accent.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  label.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                    letterSpacing: 0.8,
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
                   ),
                 ),
                 if (icon != null)
-                  Icon(icon, size: 16, color: AppColors.textSecondary),
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, size: 15, color: accent),
+                  ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               value,
               style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w700,
-                color: valueColor ?? AppColors.textPrimary,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: valueColor ?? accent,
                 height: 1.0,
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.8,
+              ),
+            ),
             if (subtitle != null) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(
                 subtitle!,
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: AppColors.textSecondary,
                 ),
               ),
@@ -85,6 +105,38 @@ class StatCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── KPI Grid ─────────────────────────────────────────────────────────────────
+
+class KpiGrid extends StatelessWidget {
+  final List<Widget> cards;
+
+  const KpiGrid({super.key, required this.cards});
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 900;
+    if (isMobile) {
+      return GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.35,
+        children: cards,
+      );
+    }
+    return Row(
+      children: [
+        for (int i = 0; i < cards.length; i++) ...[
+          Expanded(child: cards[i]),
+          if (i < cards.length - 1) const SizedBox(width: 12),
+        ],
+      ],
     );
   }
 }
