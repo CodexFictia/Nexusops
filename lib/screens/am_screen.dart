@@ -157,30 +157,77 @@ class _AMOverviewPage extends StatelessWidget {
               ),
             ),
           ),
-          ...app.openIncidents
-              .where((i) =>
-                  i.priority == IncidentPriority.critical ||
-                  i.priority == IncidentPriority.high)
-              .take(4)
-              .map((incident) => IncidentCard(
-                    incident: incident,
-                    showActions: true,
-                    onAssign: () => _showAssignDialog(context, incident),
-                    onResolve: () async {
-                      final res = await showResolveDialog(context, incident);
-                      if (res != null && context.mounted) {
-                        context
-                            .read<AppProvider>()
-                            .resolveIncident(incident.id, res);
-                      }
-                    },
-                    onTroubleshoot: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => TroubleshootScreen(
-                            preselectedDeviceId: incident.deviceId),
-                      ),
+          Builder(builder: (context) {
+            final urgent = app.openIncidents
+                .where((i) =>
+                    i.priority == IncidentPriority.critical ||
+                    i.priority == IncidentPriority.high)
+                .take(4)
+                .toList();
+            if (urgent.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.successBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: AppColors.success.withOpacity(0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle,
+                        color: AppColors.success, size: 24),
+                    SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'All Clear',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.success,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          'No critical or high priority incidents active',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
-                  )),
+                  ],
+                ),
+              );
+            }
+            return Column(
+              children: urgent
+                  .map((incident) => IncidentCard(
+                        incident: incident,
+                        showActions: true,
+                        onAssign: () =>
+                            _showAssignDialog(context, incident),
+                        onResolve: () async {
+                          final res =
+                              await showResolveDialog(context, incident);
+                          if (res != null && context.mounted) {
+                            context
+                                .read<AppProvider>()
+                                .resolveIncident(incident.id, res);
+                          }
+                        },
+                        onTroubleshoot: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => TroubleshootScreen(
+                                preselectedDeviceId: incident.deviceId),
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            );
+          }),
         ],
       ),
     );
@@ -412,26 +459,52 @@ class _AMIncidentsPageState extends State<_AMIncidentsPage> {
           onSelect: (v) => setState(() => _priorityFilter = v),
         ),
       ],
-      child: Column(
-        children: incidents
-            .map((i) => IncidentCard(
-                  incident: i,
-                  onResolve: () async {
-                    final res = await showResolveDialog(context, i);
-                    if (res != null && context.mounted) {
-                      context.read<AppProvider>().resolveIncident(i.id, res);
-                    }
-                  },
-                  onAssign: () {},
-                  onTroubleshoot: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          TroubleshootScreen(preselectedDeviceId: i.deviceId),
-                    ),
-                  ),
-                ))
-            .toList(),
-      ),
+      child: incidents.isEmpty
+          ? EmptyState(
+              icon: _statusFilter == 'Resolved'
+                  ? Icons.check_circle_outline
+                  : Icons.inbox_outlined,
+              title: _statusFilter == 'Resolved'
+                  ? 'No resolved incidents'
+                  : 'No open incidents',
+              subtitle: _priorityFilter != 'All'
+                  ? 'No $_priorityFilter priority ${_statusFilter.toLowerCase()} incidents'
+                  : _statusFilter == 'Resolved'
+                      ? 'Resolved incidents will appear here'
+                      : 'All incidents have been resolved — great work!',
+            )
+          : Column(
+              children: incidents
+                  .map((i) {
+                    final isResolved =
+                        i.status == IncidentStatus.resolved;
+                    return IncidentCard(
+                      incident: i,
+                      showActions: !isResolved,
+                      onResolve: isResolved
+                          ? null
+                          : () async {
+                              final res =
+                                  await showResolveDialog(context, i);
+                              if (res != null && context.mounted) {
+                                context
+                                    .read<AppProvider>()
+                                    .resolveIncident(i.id, res);
+                              }
+                            },
+                      onAssign: isResolved ? null : () {},
+                      onTroubleshoot: isResolved
+                          ? null
+                          : () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => TroubleshootScreen(
+                                      preselectedDeviceId: i.deviceId),
+                                ),
+                              ),
+                    );
+                  })
+                  .toList(),
+            ),
     );
   }
 }

@@ -234,9 +234,11 @@ class IncidentCard extends StatelessWidget {
             Row(
               children: [
                 StatusDot(
-                  color: incident.status == IncidentStatus.inProgress
-                      ? AppColors.info
-                      : AppColors.error,
+                  color: incident.status == IncidentStatus.resolved
+                      ? AppColors.success
+                      : incident.status == IncidentStatus.inProgress
+                          ? AppColors.info
+                          : AppColors.error,
                   pulse: incident.status == IncidentStatus.inProgress,
                 ),
                 const SizedBox(width: 8),
@@ -278,6 +280,36 @@ class IncidentCard extends StatelessWidget {
                 color: AppColors.textSecondary,
               ),
             ),
+            if (incident.status == IncidentStatus.resolved &&
+                incident.resolution != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.successBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: AppColors.success.withOpacity(0.25)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.check_circle,
+                        size: 14, color: AppColors.success),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        incident.resolution!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.success,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (showActions && !compact) ...[
               const SizedBox(height: 14),
               Row(
