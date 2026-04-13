@@ -98,12 +98,6 @@ class ExecutiveShell extends StatelessWidget {
           activeIcon: Icons.terminal,
           page: const TroubleshootScreen(),
         ),
-        ShellItem(
-          label: 'Extended Hrs',
-          icon: Icons.schedule_outlined,
-          activeIcon: Icons.schedule,
-          page: const _ExecExtendedPage(),
-        ),
       ],
     );
   }
@@ -111,23 +105,48 @@ class ExecutiveShell extends StatelessWidget {
 
 // ─── Tasks Page ───────────────────────────────────────────────────────────────
 
-class _ExecTasksPage extends StatelessWidget {
+class _ExecTasksPage extends StatefulWidget {
   final String userId;
   const _ExecTasksPage({required this.userId});
 
   @override
+  State<_ExecTasksPage> createState() => _ExecTasksPageState();
+}
+
+class _ExecTasksPageState extends State<_ExecTasksPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 2, vsync: this);
+    _tabs.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
-    // Sort open incidents by urgency score descending
     final open = [...app.openIncidents]
       ..sort((a, b) => _urgencyScore(b).compareTo(_urgencyScore(a)));
-    final critCount = open.where((i) => i.priority == IncidentPriority.critical).length;
+    final critCount =
+        open.where((i) => i.priority == IncidentPriority.critical).length;
+    final bookings = app.bookings;
+    final ongoing =
+        bookings.where((b) => b.status == BookingStatus.ongoing).toList();
+    final onExtended = _tabs.index == 1;
 
     return Column(
       children: [
         Container(
           color: AppColors.card,
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -146,32 +165,59 @@ class _ExecTasksPage extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${open.length} open · $critCount critical',
+                          onExtended
+                              ? '${bookings.length} bookings · ${ongoing.length} active'
+                              : '${open.length} open · $critCount critical',
                           style: const TextStyle(
                               fontSize: 13, color: AppColors.textSecondary),
                         ),
                       ],
                     ),
                   ),
-                  if (critCount > 0)
+                  // CTA changes per tab
+                  if (onExtended)
+                    ElevatedButton.icon(
+                      onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => const _NewBookingDialog(),
+                      ),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('New Booking'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        textStyle: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                    )
+                  else ...[
+                    if (critCount > 0)
+                      _QuickStatChip(
+                          label: 'Critical',
+                          count: critCount,
+                          color: AppColors.error),
+                    const SizedBox(width: 8),
                     _QuickStatChip(
-                        label: 'Critical', count: critCount, color: AppColors.error),
-                  const SizedBox(width: 8),
-                  _QuickStatChip(
-                      label: 'Open', count: open.length, color: AppColors.warning),
+                        label: 'Open',
+                        count: open.length,
+                        color: AppColors.warning),
+                  ],
                 ],
               ),
-              if (critCount > 0) ...[
+              // Critical banner — only on open tasks tab
+              if (!onExtended && critCount > 0) ...[
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppColors.errorBg,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: AppColors.error.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -192,45 +238,92 @@ class _ExecTasksPage extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
-              // Urgency legend
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _LegendChip(
-                        color: AppColors.error,
-                        icon: Icons.power_off_rounded,
-                        label: 'Lights OFF'),
-                    const SizedBox(width: 6),
-                    _LegendChip(
-                        color: AppColors.error,
-                        icon: Icons.wifi_off_rounded,
-                        label: 'Offline'),
-                    const SizedBox(width: 6),
-                    _LegendChip(
-                        color: AppColors.warning,
-                        icon: Icons.lightbulb_rounded,
-                        label: 'Investigate'),
-                    const SizedBox(width: 6),
-                    _LegendChip(
-                        color: AppColors.warning,
-                        icon: Icons.electric_bolt_rounded,
-                        label: 'Power Spike'),
-                    const SizedBox(width: 6),
-                    _LegendChip(
-                        color: AppColors.info,
-                        icon: Icons.electric_meter_rounded,
-                        label: 'Meter Issue'),
-                  ],
+              // Urgency legend — only on open tasks tab
+              if (!onExtended) ...[
+                const SizedBox(height: 14),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _LegendChip(
+                          color: AppColors.error,
+                          icon: Icons.power_off_rounded,
+                          label: 'Lights OFF'),
+                      const SizedBox(width: 6),
+                      _LegendChip(
+                          color: AppColors.error,
+                          icon: Icons.wifi_off_rounded,
+                          label: 'Offline'),
+                      const SizedBox(width: 6),
+                      _LegendChip(
+                          color: AppColors.warning,
+                          icon: Icons.lightbulb_rounded,
+                          label: 'Investigate'),
+                      const SizedBox(width: 6),
+                      _LegendChip(
+                          color: AppColors.warning,
+                          icon: Icons.electric_bolt_rounded,
+                          label: 'Power Spike'),
+                      const SizedBox(width: 6),
+                      _LegendChip(
+                          color: AppColors.info,
+                          icon: Icons.electric_meter_rounded,
+                          label: 'Meter Issue'),
+                    ],
+                  ),
                 ),
+              ],
+              const SizedBox(height: 12),
+              TabBar(
+                controller: _tabs,
+                labelColor: AppColors.textPrimary,
+                unselectedLabelColor: AppColors.textSecondary,
+                indicatorColor: AppColors.primary,
+                indicatorWeight: 3,
+                labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 13),
+                tabs: [
+                  Tab(text: 'Open Tasks (${open.length})'),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Extended Hrs'),
+                        if (ongoing.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppColors.success,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${ongoing.length}',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
         const Divider(height: 1),
         Expanded(
-          child: _OpenIncidentsList(incidents: open),
+          child: TabBarView(
+            controller: _tabs,
+            children: [
+              _OpenIncidentsList(incidents: open),
+              _ExecExtendedContent(bookings: bookings, ongoing: ongoing),
+            ],
+          ),
         ),
       ],
     );
@@ -1526,31 +1619,8 @@ class _ExecExtendedPage extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Stats
-          KpiGrid(cards: [
-            StatCard(
-              label: 'Active Now',
-              value: '${ongoing.length}',
-              subtitle: 'clients on extended service',
-              accentColor: AppColors.success,
-              valueColor: ongoing.isNotEmpty ? AppColors.success : null,
-              icon: Icons.radio_button_on,
-            ),
-            StatCard(
-              label: 'Total This Month',
-              value: '${bookings.length}',
-              subtitle: 'extended hour sessions',
-              accentColor: AppColors.primary,
-              icon: Icons.calendar_month,
-            ),
-            StatCard(
-              label: 'Avg Duration',
-              value: '5.8hrs',
-              subtitle: 'across all bookings',
-              accentColor: AppColors.info,
-              icon: Icons.timer_outlined,
-            ),
-          ]),
+          // Compact session strip — no stat cards
+          _SessionStrip(ongoing: ongoing, bookings: bookings),
           const SizedBox(height: 20),
 
           if (ongoing.isNotEmpty) ...[
@@ -1579,6 +1649,143 @@ class _ExecExtendedPage extends StatelessWidget {
     );
   }
 }
+
+// ─── Extended Content Tab (embedded in My Tasks) ─────────────────────────────
+
+class _ExecExtendedContent extends StatelessWidget {
+  final List<ExtendedHoursBooking> bookings;
+  final List<ExtendedHoursBooking> ongoing;
+
+  const _ExecExtendedContent(
+      {required this.bookings, required this.ongoing});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Compact info banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.infoBg,
+              borderRadius: BorderRadius.circular(10),
+              border:
+                  Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline_rounded,
+                    color: AppColors.info, size: 16),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Book for any client usage OUTSIDE their contracted schedule. '
+                    'Lights ON without a booking → unauthorized incident.',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Session strip
+          _SessionStrip(ongoing: ongoing, bookings: bookings),
+          const SizedBox(height: 20),
+          if (ongoing.isNotEmpty) ...[
+            const SectionHeader(
+                title: 'Active Sessions',
+                subtitle: 'Currently running'),
+            ...ongoing.map((b) => _BookingCard(booking: b, isActive: true)),
+            const SizedBox(height: 16),
+          ],
+          const SectionHeader(
+              title: 'All Bookings',
+              subtitle: 'Complete history · Most recent first'),
+          _BookingsTable(bookings: bookings),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Session Strip ────────────────────────────────────────────────────────────
+
+class _SessionStrip extends StatelessWidget {
+  final List<ExtendedHoursBooking> ongoing;
+  final List<ExtendedHoursBooking> bookings;
+
+  const _SessionStrip(
+      {required this.ongoing, required this.bookings});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          StatusDot(
+            color: ongoing.isNotEmpty
+                ? AppColors.success
+                : AppColors.border,
+            pulse: ongoing.isNotEmpty,
+            size: 8,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            ongoing.isNotEmpty
+                ? '${ongoing.length} active'
+                : 'No active sessions',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: ongoing.isNotEmpty
+                  ? AppColors.success
+                  : AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Container(width: 1, height: 16, color: AppColors.border),
+          const SizedBox(width: 14),
+          const Icon(Icons.calendar_today_outlined,
+              size: 13, color: AppColors.textSecondary),
+          const SizedBox(width: 5),
+          Text(
+            '${bookings.length} this month',
+            style: const TextStyle(
+                fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const Spacer(),
+          const Icon(Icons.timer_outlined,
+              size: 13, color: AppColors.textSecondary),
+          const SizedBox(width: 4),
+          const Text(
+            '5.8h avg',
+            style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Booking Card ─────────────────────────────────────────────────────────────
 
 class _BookingCard extends StatelessWidget {
   final ExtendedHoursBooking booking;
