@@ -299,6 +299,32 @@ final mockIncidents = [
   ),
   // ── RESOLVED ─────────────────────────────────────────────────────────────
   Incident(
+    id: 'r1a2b3c4-1111-4aaa-8bbb-aabbccddeeff',
+    clientName: 'Hollister Global Business',
+    floor: '3rd Floor',
+    description: 'HVAC offline — temperature critical. Client reported discomfort. Escalated to facilities.',
+    status: IncidentStatus.resolved,
+    priority: IncidentPriority.critical,
+    timestamp: DateTime.now().subtract(const Duration(hours: 5, minutes: 10)),
+    deviceId: 'dev-hvac-3f-hollister',
+    assignedTo: 'u1',
+    resolution:
+        'HVAC unit reset via Antigravity dashboard. Root cause: compressor fault after power fluctuation. Facilities notified for preventive maintenance.',
+  ),
+  Incident(
+    id: 'r2b3c4d5-2222-4bbb-9ccc-bbccddee0011',
+    clientName: 'MAAP Marketing LLP',
+    floor: '3rd Floor',
+    description: 'Access control offline — FR/RFID entries not being logged. Security gap confirmed.',
+    status: IncidentStatus.resolved,
+    priority: IncidentPriority.high,
+    timestamp: DateTime.now().subtract(const Duration(hours: 3, minutes: 45)),
+    deviceId: 'dev-ac-3f-maap',
+    assignedTo: 'u4',
+    resolution:
+        'Access controller rebooted. Firmware re-flashed to v2.4.1. Entry logs recovered from device cache and synced to portal. Client notified.',
+  ),
+  Incident(
     id: 'j0e7f6g8-0567-4f01-3234-667788990011',
     clientName: 'FNZ Technology',
     floor: 'Ground Floor',

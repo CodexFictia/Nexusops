@@ -418,7 +418,10 @@ class _AMIncidentsPageState extends State<_AMIncidentsPage> {
         _FilterChips(
           options: const ['Open', 'Resolved'],
           selected: _statusFilter,
-          onSelect: (v) => setState(() => _statusFilter = v),
+          onSelect: (v) => setState(() {
+            _statusFilter = v;
+            _priorityFilter = 'All'; // reset priority when switching status
+          }),
         ),
         const SizedBox(width: 12),
         _FilterChips(
