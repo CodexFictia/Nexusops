@@ -98,12 +98,6 @@ class ExecutiveShell extends StatelessWidget {
           activeIcon: Icons.terminal,
           page: const TroubleshootScreen(),
         ),
-        ShellItem(
-          label: 'Extended Hrs',
-          icon: Icons.schedule_outlined,
-          activeIcon: Icons.schedule,
-          page: const _ExecExtendedPage(),
-        ),
       ],
     );
   }
@@ -127,6 +121,7 @@ class _ExecTasksPageState extends State<_ExecTasksPage>
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
+    _tabs.addListener(() => setState(() {}));
   }
 
   @override
@@ -138,11 +133,14 @@ class _ExecTasksPageState extends State<_ExecTasksPage>
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
-    // Sort open incidents by urgency score descending
     final open = [...app.openIncidents]
       ..sort((a, b) => _urgencyScore(b).compareTo(_urgencyScore(a)));
-    final resolved = app.resolvedIncidents;
-    final critCount = open.where((i) => i.priority == IncidentPriority.critical).length;
+    final critCount =
+        open.where((i) => i.priority == IncidentPriority.critical).length;
+    final bookings = app.bookings;
+    final ongoing =
+        bookings.where((b) => b.status == BookingStatus.ongoing).toList();
+    final onExtended = _tabs.index == 1;
 
     return Column(
       children: [
@@ -167,32 +165,59 @@ class _ExecTasksPageState extends State<_ExecTasksPage>
                           ),
                         ),
                         Text(
-                          '${open.length} open · $critCount critical',
+                          onExtended
+                              ? '${bookings.length} bookings · ${ongoing.length} active'
+                              : '${open.length} open · $critCount critical',
                           style: const TextStyle(
                               fontSize: 13, color: AppColors.textSecondary),
                         ),
                       ],
                     ),
                   ),
-                  if (critCount > 0)
+                  // CTA changes per tab
+                  if (onExtended)
+                    ElevatedButton.icon(
+                      onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => const _NewBookingDialog(),
+                      ),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('New Booking'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        textStyle: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                    )
+                  else ...[
+                    if (critCount > 0)
+                      _QuickStatChip(
+                          label: 'Critical',
+                          count: critCount,
+                          color: AppColors.error),
+                    const SizedBox(width: 8),
                     _QuickStatChip(
-                        label: 'Critical', count: critCount, color: AppColors.error),
-                  const SizedBox(width: 8),
-                  _QuickStatChip(
-                      label: 'Open', count: open.length, color: AppColors.warning),
+                        label: 'Open',
+                        count: open.length,
+                        color: AppColors.warning),
+                  ],
                 ],
               ),
-              if (critCount > 0) ...[
+              // Critical banner — only on open tasks tab
+              if (!onExtended && critCount > 0) ...[
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppColors.errorBg,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: AppColors.error.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -213,39 +238,41 @@ class _ExecTasksPageState extends State<_ExecTasksPage>
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
-              // Urgency legend
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _LegendChip(
-                        color: AppColors.error,
-                        icon: Icons.power_off_rounded,
-                        label: 'Lights OFF'),
-                    const SizedBox(width: 6),
-                    _LegendChip(
-                        color: AppColors.error,
-                        icon: Icons.wifi_off_rounded,
-                        label: 'Offline'),
-                    const SizedBox(width: 6),
-                    _LegendChip(
-                        color: AppColors.warning,
-                        icon: Icons.lightbulb_rounded,
-                        label: 'Investigate'),
-                    const SizedBox(width: 6),
-                    _LegendChip(
-                        color: AppColors.warning,
-                        icon: Icons.electric_bolt_rounded,
-                        label: 'Power Spike'),
-                    const SizedBox(width: 6),
-                    _LegendChip(
-                        color: AppColors.info,
-                        icon: Icons.electric_meter_rounded,
-                        label: 'Meter Issue'),
-                  ],
+              // Urgency legend — only on open tasks tab
+              if (!onExtended) ...[
+                const SizedBox(height: 14),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _LegendChip(
+                          color: AppColors.error,
+                          icon: Icons.power_off_rounded,
+                          label: 'Lights OFF'),
+                      const SizedBox(width: 6),
+                      _LegendChip(
+                          color: AppColors.error,
+                          icon: Icons.wifi_off_rounded,
+                          label: 'Offline'),
+                      const SizedBox(width: 6),
+                      _LegendChip(
+                          color: AppColors.warning,
+                          icon: Icons.lightbulb_rounded,
+                          label: 'Investigate'),
+                      const SizedBox(width: 6),
+                      _LegendChip(
+                          color: AppColors.warning,
+                          icon: Icons.electric_bolt_rounded,
+                          label: 'Power Spike'),
+                      const SizedBox(width: 6),
+                      _LegendChip(
+                          color: AppColors.info,
+                          icon: Icons.electric_meter_rounded,
+                          label: 'Meter Issue'),
+                    ],
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 12),
               TabBar(
                 controller: _tabs,
@@ -256,8 +283,33 @@ class _ExecTasksPageState extends State<_ExecTasksPage>
                 labelStyle: const TextStyle(
                     fontWeight: FontWeight.w600, fontSize: 13),
                 tabs: [
-                  Tab(text: 'Open (${open.length})'),
-                  Tab(text: 'Resolved (${resolved.length})'),
+                  Tab(text: 'Open Tasks (${open.length})'),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Extended Hrs'),
+                        if (ongoing.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppColors.success,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${ongoing.length}',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -269,7 +321,7 @@ class _ExecTasksPageState extends State<_ExecTasksPage>
             controller: _tabs,
             children: [
               _OpenIncidentsList(incidents: open),
-              _ResolvedIncidentsList(incidents: resolved),
+              _ExecExtendedContent(bookings: bookings, ongoing: ongoing),
             ],
           ),
         ),
@@ -366,67 +418,6 @@ class _OpenIncidentsList extends StatelessWidget {
       itemBuilder: (ctx, i) {
         final incident = incidents[i];
         return _ExecIncidentCard(incident: incident);
-      },
-    );
-  }
-}
-
-class _ResolvedIncidentsList extends StatelessWidget {
-  final List<Incident> incidents;
-  const _ResolvedIncidentsList({required this.incidents});
-
-  @override
-  Widget build(BuildContext context) {
-    if (incidents.isEmpty) {
-      return const EmptyState(
-        icon: Icons.history,
-        title: 'No resolved incidents',
-        subtitle: 'Resolved incidents will appear here.',
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: incidents.length,
-      itemBuilder: (ctx, i) {
-        final incident = incidents[i];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.successBg,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.check, color: AppColors.success, size: 18),
-            ),
-            title: Text(
-              '${incident.clientName} — ${incident.floor}',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-            subtitle: Text(
-              incident.resolution ?? 'No resolution notes',
-              style:
-                  const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: Text(
-              incident.ageLabel,
-              style:
-                  const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-            ),
-          ),
-        );
       },
     );
   }
@@ -704,41 +695,31 @@ class _ExecMapPageState extends State<_ExecMapPage> {
       child: Column(
         children: [
           // Floor selector + stats row
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  label: 'Issues',
-                  value: '$redCount',
-                  subtitle: 'zones need attention',
-                  accentColor: AppColors.error,
-                  icon: Icons.error_outline,
-                  valueColor: redCount > 0 ? AppColors.error : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Warnings',
-                  value: '$yellowCount',
-                  subtitle: 'zones to investigate',
-                  accentColor: AppColors.warning,
-                  icon: Icons.warning_amber_outlined,
-                  valueColor: yellowCount > 0 ? AppColors.warning : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Floor',
-                  value: _selectedFloor.replaceAll(' Floor', '').replaceAll('nd', '').replaceAll('rd', '').replaceAll('st', ''),
-                  subtitle: 'selected · tap to change',
-                  accentColor: AppColors.info,
-                  icon: Icons.layers_outlined,
-                ),
-              ),
-            ],
-          ),
+          KpiGrid(cards: [
+            StatCard(
+              label: 'Issues',
+              value: '$redCount',
+              subtitle: 'zones need attention',
+              accentColor: AppColors.error,
+              icon: Icons.error_outline,
+              valueColor: redCount > 0 ? AppColors.error : null,
+            ),
+            StatCard(
+              label: 'Warnings',
+              value: '$yellowCount',
+              subtitle: 'zones to investigate',
+              accentColor: AppColors.warning,
+              icon: Icons.warning_amber_outlined,
+              valueColor: yellowCount > 0 ? AppColors.warning : null,
+            ),
+            StatCard(
+              label: 'Floor',
+              value: _selectedFloor.replaceAll(' Floor', '').replaceAll('nd', '').replaceAll('rd', '').replaceAll('st', ''),
+              subtitle: 'selected · tap to change',
+              accentColor: AppColors.info,
+              icon: Icons.layers_outlined,
+            ),
+          ]),
           const SizedBox(height: 20),
 
           // Floor selector tabs
@@ -1279,45 +1260,35 @@ class _ExecFloorPageState extends State<_ExecFloorPage> {
       ],
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  label: 'Total Devices',
-                  value: '${devices.length}',
-                  subtitle: '${_floors.length - 1} floors · DLF Tower A',
-                  accentColor: AppColors.info,
-                  icon: Icons.devices,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Online',
-                  value: '$onlineCount/${devices.length}',
-                  subtitle: devices.isNotEmpty
-                      ? '${((onlineCount / devices.length) * 100).toStringAsFixed(0)}% operational'
-                      : '—',
-                  accentColor: AppColors.success,
-                  icon: Icons.wifi,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Offline',
-                  value: '$offlineCount',
-                  subtitle: offlineCount > 0
-                      ? 'Needs attention'
-                      : 'All connected',
-                  accentColor:
-                      offlineCount > 0 ? AppColors.error : AppColors.success,
-                  valueColor: offlineCount > 0 ? AppColors.error : null,
-                  icon: Icons.wifi_off,
-                ),
-              ),
-            ],
-          ),
+          KpiGrid(cards: [
+            StatCard(
+              label: 'Total Devices',
+              value: '${devices.length}',
+              subtitle: '${_floors.length - 1} floors · DLF Tower A',
+              accentColor: AppColors.info,
+              icon: Icons.devices,
+            ),
+            StatCard(
+              label: 'Online',
+              value: '$onlineCount/${devices.length}',
+              subtitle: devices.isNotEmpty
+                  ? '${((onlineCount / devices.length) * 100).toStringAsFixed(0)}% operational'
+                  : '—',
+              accentColor: AppColors.success,
+              icon: Icons.wifi,
+            ),
+            StatCard(
+              label: 'Offline',
+              value: '$offlineCount',
+              subtitle: offlineCount > 0
+                  ? 'Needs attention'
+                  : 'All connected',
+              accentColor:
+                  offlineCount > 0 ? AppColors.error : AppColors.success,
+              valueColor: offlineCount > 0 ? AppColors.error : null,
+              icon: Icons.wifi_off,
+            ),
+          ]),
           const SizedBox(height: 20),
           SectionHeader(
             title: 'Devices by Floor',
@@ -1648,41 +1619,8 @@ class _ExecExtendedPage extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Stats
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  label: 'Active Now',
-                  value: '${ongoing.length}',
-                  subtitle: 'clients on extended service',
-                  accentColor: AppColors.success,
-                  valueColor: ongoing.isNotEmpty ? AppColors.success : null,
-                  icon: Icons.radio_button_on,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Total This Month',
-                  value: '${bookings.length}',
-                  subtitle: 'extended hour sessions',
-                  accentColor: AppColors.primary,
-                  icon: Icons.calendar_month,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Avg Duration',
-                  value: '5.8hrs',
-                  subtitle: 'across all bookings',
-                  accentColor: AppColors.info,
-                  icon: Icons.timer_outlined,
-                ),
-              ),
-            ],
-          ),
+          // Compact session strip — no stat cards
+          _SessionStrip(ongoing: ongoing, bookings: bookings),
           const SizedBox(height: 20),
 
           if (ongoing.isNotEmpty) ...[
@@ -1707,41 +1645,147 @@ class _ExecExtendedPage extends StatelessWidget {
   void _showBookDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Book Extended Hours'),
-        content: const SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Important: Extended Hours must be booked for times OUTSIDE the client\'s default schedule.\n\n'
-                'Example: If a client\'s schedule is Mon–Fri 9AM–6PM, you can only book for evenings (after 6PM), weekends, or early mornings (before 9AM).',
-                style: TextStyle(fontSize: 13, height: 1.5),
-              ),
-              SizedBox(height: 12),
-              Text(
-                'Select floor and client to continue.',
-                style: TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary),
-              ),
-            ],
+      builder: (ctx) => const _NewBookingDialog(),
+    );
+  }
+}
+
+// ─── Extended Content Tab (embedded in My Tasks) ─────────────────────────────
+
+class _ExecExtendedContent extends StatelessWidget {
+  final List<ExtendedHoursBooking> bookings;
+  final List<ExtendedHoursBooking> ongoing;
+
+  const _ExecExtendedContent(
+      {required this.bookings, required this.ongoing});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Compact info banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.infoBg,
+              borderRadius: BorderRadius.circular(10),
+              border:
+                  Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline_rounded,
+                    color: AppColors.info, size: 16),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Book for any client usage OUTSIDE their contracted schedule. '
+                    'Lights ON without a booking → unauthorized incident.',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        height: 1.4),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Continue'),
+          const SizedBox(height: 14),
+          // Session strip
+          _SessionStrip(ongoing: ongoing, bookings: bookings),
+          const SizedBox(height: 20),
+          if (ongoing.isNotEmpty) ...[
+            const SectionHeader(
+                title: 'Active Sessions',
+                subtitle: 'Currently running'),
+            ...ongoing.map((b) => _BookingCard(booking: b, isActive: true)),
+            const SizedBox(height: 16),
+          ],
+          const SectionHeader(
+              title: 'All Bookings',
+              subtitle: 'Complete history · Most recent first'),
+          _BookingsTable(bookings: bookings),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Session Strip ────────────────────────────────────────────────────────────
+
+class _SessionStrip extends StatelessWidget {
+  final List<ExtendedHoursBooking> ongoing;
+  final List<ExtendedHoursBooking> bookings;
+
+  const _SessionStrip(
+      {required this.ongoing, required this.bookings});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          StatusDot(
+            color: ongoing.isNotEmpty
+                ? AppColors.success
+                : AppColors.border,
+            pulse: ongoing.isNotEmpty,
+            size: 8,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            ongoing.isNotEmpty
+                ? '${ongoing.length} active'
+                : 'No active sessions',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: ongoing.isNotEmpty
+                  ? AppColors.success
+                  : AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Container(width: 1, height: 16, color: AppColors.border),
+          const SizedBox(width: 14),
+          const Icon(Icons.calendar_today_outlined,
+              size: 13, color: AppColors.textSecondary),
+          const SizedBox(width: 5),
+          Text(
+            '${bookings.length} this month',
+            style: const TextStyle(
+                fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const Spacer(),
+          const Icon(Icons.timer_outlined,
+              size: 13, color: AppColors.textSecondary),
+          const SizedBox(width: 4),
+          const Text(
+            '5.8h avg',
+            style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600),
           ),
         ],
       ),
     );
   }
 }
+
+// ─── Booking Card ─────────────────────────────────────────────────────────────
 
 class _BookingCard extends StatelessWidget {
   final ExtendedHoursBooking booking;
@@ -1975,4 +2019,599 @@ class _TH extends StatelessWidget {
           letterSpacing: 0.5,
         ),
       );
+}
+
+// ─── New Booking Dialog ───────────────────────────────────────────────────────
+
+class _NewBookingDialog extends StatefulWidget {
+  const _NewBookingDialog();
+
+  @override
+  State<_NewBookingDialog> createState() => _NewBookingDialogState();
+}
+
+class _NewBookingDialogState extends State<_NewBookingDialog> {
+  int _step = 0;
+
+  // Step 0
+  Client? _selectedClient;
+
+  // Step 1
+  String _startTime = '6PM';
+  String _endTime = '10PM';
+
+  // Step 2
+  String _reason = 'ops'; // 'ops' | 'client'
+  bool _billable = false;
+
+  final _startOptions = ['6PM', '7PM', '8PM', '9PM', '10PM', '11PM'];
+  final _endOptions = ['8PM', '9PM', '10PM', '11PM', '12AM', '1AM', '2AM'];
+
+  String _calcDuration() {
+    final startH = _timeToHour(_startTime);
+    final endH = _timeToHour(_endTime);
+    final diff = endH > startH ? endH - startH : (24 - startH) + endH;
+    return '${diff}h';
+  }
+
+  int _timeToHour(String t) {
+    final map = {
+      '6PM': 18, '7PM': 19, '8PM': 20, '9PM': 21, '10PM': 22,
+      '11PM': 23, '12AM': 0, '1AM': 1, '2AM': 2,
+    };
+    return map[t] ?? 18;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Title bar
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppColors.border)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'New Extended Hours Booking',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Step ${_step + 1} of 3 — ${['Choose Client', 'Floor & Zone', 'Reason & Confirm'][_step]}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => Navigator.pop(context),
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+            // Step progress
+            LinearProgressIndicator(
+              value: (_step + 1) / 3,
+              backgroundColor: AppColors.border,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              minHeight: 3,
+            ),
+            // Content
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: _buildStep(),
+              ),
+            ),
+            // Bottom actions
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: AppColors.border)),
+              ),
+              child: Row(
+                children: [
+                  if (_step > 0)
+                    OutlinedButton(
+                      onPressed: () => setState(() => _step--),
+                      child: const Text('Back'),
+                    ),
+                  const Spacer(),
+                  if (_step < 2)
+                    ElevatedButton(
+                      onPressed: _canContinue()
+                          ? () => setState(() => _step++)
+                          : null,
+                      child: const Text('Continue'),
+                    )
+                  else
+                    ElevatedButton(
+                      onPressed: _confirm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Confirm Booking'),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _canContinue() {
+    if (_step == 0) return _selectedClient != null;
+    if (_step == 1) return true;
+    return _reason.isNotEmpty;
+  }
+
+  Widget _buildStep() {
+    switch (_step) {
+      case 0:
+        return _buildStepClient();
+      case 1:
+        return _buildStepFloor();
+      case 2:
+        return _buildStepReason();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildStepClient() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Select Client',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...mockClients.map((client) {
+          final isSelected = _selectedClient?.id == client.id;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedClient = client),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.primary.withValues(alpha: 0.08)
+                    : AppColors.card,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : AppColors.border,
+                  width: isSelected ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          client.name,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${client.floor} · Mon–Fri 9AM–6PM',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isSelected)
+                    const Icon(Icons.check_circle_rounded,
+                        color: AppColors.primary, size: 20),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildStepFloor() {
+    final client = _selectedClient!;
+    final floorZones = floorZoneMap[client.floor] ?? [];
+    final zones = floorZones
+        .expand((row) => row)
+        .where((z) => z.clientName == client.name)
+        .map((z) => z.zone)
+        .toSet()
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Floor display
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.infoBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.layers_outlined, color: AppColors.info, size: 16),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Floor: ${client.floor}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.info,
+                    ),
+                  ),
+                  const Text(
+                    'Default schedule: Mon–Fri 9AM–6PM',
+                    style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (zones.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Text(
+            'Zone',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: zones
+                .map((z) => Chip(
+                      label: Text(z),
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      labelStyle: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ))
+                .toList(),
+          ),
+        ],
+        const SizedBox(height: 20),
+        const Text(
+          'Start Time',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _startOptions.map((t) {
+            final isSelected = _startTime == t;
+            return GestureDetector(
+              onTap: () => setState(() => _startTime = t),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected ? AppColors.primary : AppColors.border,
+                  ),
+                ),
+                child: Text(
+                  t,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.white : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'End Time',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _endOptions.map((t) {
+            final isSelected = _endTime == t;
+            return GestureDetector(
+              onTap: () => setState(() => _endTime = t),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected ? AppColors.primary : AppColors.border,
+                  ),
+                ),
+                child: Text(
+                  t,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.white : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepReason() {
+    final client = _selectedClient!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Summary card
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                client.name,
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${client.floor} · $_startTime–$_endTime · ${_calcDuration()}',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          'Reason',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Ops initiated card
+        GestureDetector(
+          onTap: () => setState(() {
+            _reason = 'ops';
+            _billable = false;
+          }),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _reason == 'ops'
+                  ? AppColors.warning.withValues(alpha: 0.08)
+                  : AppColors.card,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: _reason == 'ops' ? AppColors.warning : AppColors.border,
+                width: _reason == 'ops' ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.support_agent,
+                      color: AppColors.warning, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Ops Initiated',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        'We are enabling this — no client request',
+                        style: TextStyle(
+                            fontSize: 11, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_reason == 'ops')
+                  const Icon(Icons.check_circle_rounded,
+                      color: AppColors.warning, size: 20),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Client initiated card
+        GestureDetector(
+          onTap: () => setState(() {
+            _reason = 'client';
+            _billable = true;
+          }),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _reason == 'client'
+                  ? AppColors.info.withValues(alpha: 0.08)
+                  : AppColors.card,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: _reason == 'client' ? AppColors.info : AppColors.border,
+                width: _reason == 'client' ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.info.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.business,
+                      color: AppColors.info, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Client Initiated',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        'Client requested extended access',
+                        style: TextStyle(
+                            fontSize: 11, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_reason == 'client')
+                  const Icon(Icons.check_circle_rounded,
+                      color: AppColors.info, size: 20),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        // Billable toggle
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Bill to client?',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Switch(
+                value: _billable,
+                onChanged: (v) => setState(() => _billable = v),
+                activeColor: AppColors.success,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _confirm() {
+    final client = _selectedClient!;
+    final booking = ExtendedHoursBooking(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      clientName: client.name,
+      floor: client.floor,
+      date: DateTime.now(),
+      timeRange: '$_startTime–$_endTime',
+      duration: _calcDuration(),
+      source: _reason == 'ops' ? BookingSource.ops : BookingSource.client,
+      billable: _billable,
+      status: BookingStatus.upcoming,
+    );
+    context.read<AppProvider>().addBooking(booking);
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Booking confirmed for ${client.name}'),
+        backgroundColor: AppColors.success,
+      ),
+    );
+  }
 }

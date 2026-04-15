@@ -144,6 +144,11 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addBooking(ExtendedHoursBooking booking) {
+    _bookings.add(booking);
+    notifyListeners();
+  }
+
   void toggleDevice(String deviceId) {
     final idx = _devices.indexWhere((d) => d.id == deviceId);
     if (idx == -1) return;

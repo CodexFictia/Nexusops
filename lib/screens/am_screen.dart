@@ -61,61 +61,16 @@ class _AMOverviewPage extends StatelessWidget {
     final app = context.watch<AppProvider>();
     final statuses = mockExecutiveStatuses;
 
+    final totalResolved =
+        statuses.fold(0, (s, e) => s + e.resolvedToday);
+
     return PageWrapper(
       title: 'Operations Overview',
       subtitle: 'DLF Commercial Tower A · ${_timeNow()}',
       child: Column(
         children: [
-          // KPI row
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  label: 'Open Incidents',
-                  value: '${app.openCount}',
-                  subtitle: '${app.criticalCount} critical',
-                  accentColor: app.openCount > 5
-                      ? AppColors.error
-                      : AppColors.warning,
-                  valueColor:
-                      app.openCount > 5 ? AppColors.error : null,
-                  icon: Icons.warning_amber,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Resolved Today',
-                  value: '${statuses.map((s) => s.resolvedToday).fold(0, (a, b) => a + b)}',
-                  subtitle: 'across ${statuses.length} executives',
-                  accentColor: AppColors.success,
-                  icon: Icons.check_circle,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Avg Resolution',
-                  value: '${app.avgResolutionHours.toStringAsFixed(1)}h',
-                  subtitle: 'SLA target: 4h',
-                  accentColor: AppColors.info,
-                  icon: Icons.timer,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'SLA Compliance',
-                  value: '${app.slaCompliancePercent.toStringAsFixed(0)}%',
-                  subtitle: 'Target: 95%',
-                  accentColor: app.slaCompliancePercent >= 90
-                      ? AppColors.success
-                      : AppColors.warning,
-                  icon: Icons.verified,
-                ),
-              ),
-            ],
-          ),
+          // ── Operations Pulse ──────────────────────────────────────────
+          _OpsPulseCard(app: app, totalResolved: totalResolved),
           const SizedBox(height: 20),
           // Team status
           SectionHeader(
@@ -126,16 +81,29 @@ class _AMOverviewPage extends StatelessWidget {
               child: const Text('View All'),
             ),
           ),
-          Row(
-            children: statuses
-                .map((s) => Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: _ExecutiveCard(status: s),
-                      ),
-                    ))
-                .toList(),
-          ),
+          LayoutBuilder(builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 700;
+            if (isMobile) {
+              return Column(
+                children: statuses
+                    .map((s) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _ExecutiveCard(status: s),
+                        ))
+                    .toList(),
+              );
+            }
+            return Row(
+              children: statuses
+                  .map((s) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: _ExecutiveCard(status: s),
+                        ),
+                      ))
+                  .toList(),
+            );
+          }),
           const SizedBox(height: 20),
           // Critical incidents
           SectionHeader(
@@ -157,30 +125,77 @@ class _AMOverviewPage extends StatelessWidget {
               ),
             ),
           ),
-          ...app.openIncidents
-              .where((i) =>
-                  i.priority == IncidentPriority.critical ||
-                  i.priority == IncidentPriority.high)
-              .take(4)
-              .map((incident) => IncidentCard(
-                    incident: incident,
-                    showActions: true,
-                    onAssign: () => _showAssignDialog(context, incident),
-                    onResolve: () async {
-                      final res = await showResolveDialog(context, incident);
-                      if (res != null && context.mounted) {
-                        context
-                            .read<AppProvider>()
-                            .resolveIncident(incident.id, res);
-                      }
-                    },
-                    onTroubleshoot: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => TroubleshootScreen(
-                            preselectedDeviceId: incident.deviceId),
-                      ),
+          Builder(builder: (context) {
+            final urgent = app.openIncidents
+                .where((i) =>
+                    i.priority == IncidentPriority.critical ||
+                    i.priority == IncidentPriority.high)
+                .take(4)
+                .toList();
+            if (urgent.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.successBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: AppColors.success.withOpacity(0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle,
+                        color: AppColors.success, size: 24),
+                    SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'All Clear',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.success,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          'No critical or high priority incidents active',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
-                  )),
+                  ],
+                ),
+              );
+            }
+            return Column(
+              children: urgent
+                  .map((incident) => IncidentCard(
+                        incident: incident,
+                        showActions: true,
+                        onAssign: () =>
+                            _showAssignDialog(context, incident),
+                        onResolve: () async {
+                          final res =
+                              await showResolveDialog(context, incident);
+                          if (res != null && context.mounted) {
+                            context
+                                .read<AppProvider>()
+                                .resolveIncident(incident.id, res);
+                          }
+                        },
+                        onTroubleshoot: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => TroubleshootScreen(
+                                preselectedDeviceId: incident.deviceId),
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            );
+          }),
         ],
       ),
     );
@@ -403,7 +418,10 @@ class _AMIncidentsPageState extends State<_AMIncidentsPage> {
         _FilterChips(
           options: const ['Open', 'Resolved'],
           selected: _statusFilter,
-          onSelect: (v) => setState(() => _statusFilter = v),
+          onSelect: (v) => setState(() {
+            _statusFilter = v;
+            _priorityFilter = 'All'; // reset priority when switching status
+          }),
         ),
         const SizedBox(width: 12),
         _FilterChips(
@@ -412,26 +430,52 @@ class _AMIncidentsPageState extends State<_AMIncidentsPage> {
           onSelect: (v) => setState(() => _priorityFilter = v),
         ),
       ],
-      child: Column(
-        children: incidents
-            .map((i) => IncidentCard(
-                  incident: i,
-                  onResolve: () async {
-                    final res = await showResolveDialog(context, i);
-                    if (res != null && context.mounted) {
-                      context.read<AppProvider>().resolveIncident(i.id, res);
-                    }
-                  },
-                  onAssign: () {},
-                  onTroubleshoot: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          TroubleshootScreen(preselectedDeviceId: i.deviceId),
-                    ),
-                  ),
-                ))
-            .toList(),
-      ),
+      child: incidents.isEmpty
+          ? EmptyState(
+              icon: _statusFilter == 'Resolved'
+                  ? Icons.check_circle_outline
+                  : Icons.inbox_outlined,
+              title: _statusFilter == 'Resolved'
+                  ? 'No resolved incidents'
+                  : 'No open incidents',
+              subtitle: _priorityFilter != 'All'
+                  ? 'No $_priorityFilter priority ${_statusFilter.toLowerCase()} incidents'
+                  : _statusFilter == 'Resolved'
+                      ? 'Resolved incidents will appear here'
+                      : 'All incidents have been resolved — great work!',
+            )
+          : Column(
+              children: incidents
+                  .map((i) {
+                    final isResolved =
+                        i.status == IncidentStatus.resolved;
+                    return IncidentCard(
+                      incident: i,
+                      showActions: !isResolved,
+                      onResolve: isResolved
+                          ? null
+                          : () async {
+                              final res =
+                                  await showResolveDialog(context, i);
+                              if (res != null && context.mounted) {
+                                context
+                                    .read<AppProvider>()
+                                    .resolveIncident(i.id, res);
+                              }
+                            },
+                      onAssign: isResolved ? null : () {},
+                      onTroubleshoot: isResolved
+                          ? null
+                          : () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => TroubleshootScreen(
+                                      preselectedDeviceId: i.deviceId),
+                                ),
+                              ),
+                    );
+                  })
+                  .toList(),
+            ),
     );
   }
 }
@@ -500,39 +544,8 @@ class _AMTeamPage extends StatelessWidget {
       subtitle: '${statuses.length} executives on shift',
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  label: 'Active Executives',
-                  value: '${statuses.length}',
-                  subtitle: 'On shift now',
-                  accentColor: AppColors.success,
-                  icon: Icons.people,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Resolved Today',
-                  value: '$totalResolved',
-                  subtitle: 'Team total',
-                  accentColor: AppColors.info,
-                  icon: Icons.check_circle,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Avg Per Executive',
-                  value: '${(totalResolved / statuses.length).toStringAsFixed(1)}',
-                  subtitle: 'Incidents resolved',
-                  accentColor: AppColors.primary,
-                  icon: Icons.trending_up,
-                ),
-              ),
-            ],
-          ),
+          // ── Team Summary Strip ────────────────────────────────────
+          _TeamSummaryStrip(statuses: statuses, totalResolved: totalResolved),
           const SizedBox(height: 20),
           const SectionHeader(title: 'Executive Status Board'),
           ...statuses.map((s) => _TeamMemberCard(status: s)),
@@ -704,46 +717,8 @@ class _AMAnalyticsPage extends StatelessWidget {
       subtitle: 'April 2026 · DLF Commercial Tower A',
       child: Column(
         children: [
-          // KPI row
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  label: 'Incidents This Month',
-                  value: '79',
-                  subtitle: '+12% vs last month',
-                  accentColor: AppColors.warning,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Avg Resolution Time',
-                  value: '2.3h',
-                  subtitle: 'Target: 4h ✓',
-                  accentColor: AppColors.success,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'After-Hours Incidents',
-                  value: '34',
-                  subtitle: '43% of total',
-                  accentColor: AppColors.error,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  label: 'Extended Hours Booked',
-                  value: '16',
-                  subtitle: 'Avg 5.8h per session',
-                  accentColor: AppColors.info,
-                ),
-              ),
-            ],
-          ),
+          // ── Analytics Summary Strip ───────────────────────────────
+          const _AnalyticsSummaryStrip(),
           const SizedBox(height: 20),
           // Incident trend chart
           Row(
@@ -1077,6 +1052,404 @@ class _ResolutionTable extends StatelessWidget {
                   ],
                 ),
               )),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Operations Pulse Card ────────────────────────────────────────────────────
+
+class _OpsPulseCard extends StatelessWidget {
+  final AppProvider app;
+  final int totalResolved;
+
+  const _OpsPulseCard({required this.app, required this.totalResolved});
+
+  @override
+  Widget build(BuildContext context) {
+    final sla = app.slaCompliancePercent;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0.07),
+            AppColors.card,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border:
+            Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const StatusDot(
+                  color: AppColors.error, pulse: true, size: 8),
+              const SizedBox(width: 8),
+              const Text(
+                'Operations Pulse',
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: AppColors.textPrimary),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'LIVE',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.error,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _PulseBadge(
+                icon: Icons.warning_amber_rounded,
+                value: '${app.openCount}',
+                label: 'Open',
+                color: app.openCount > 5
+                    ? AppColors.error
+                    : AppColors.warning,
+              ),
+              if (app.criticalCount > 0)
+                _PulseBadge(
+                  icon: Icons.priority_high_rounded,
+                  value: '${app.criticalCount}',
+                  label: 'Critical',
+                  color: AppColors.error,
+                ),
+              _PulseBadge(
+                icon: Icons.check_circle_outline,
+                value: '$totalResolved',
+                label: 'Resolved Today',
+                color: AppColors.success,
+              ),
+              _PulseBadge(
+                icon: Icons.timer_outlined,
+                value: '${app.avgResolutionHours.toStringAsFixed(1)}h',
+                label: 'Avg Resolution',
+                color: AppColors.info,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              const Text(
+                'SLA Compliance',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary),
+              ),
+              const Spacer(),
+              Text(
+                '${sla.toStringAsFixed(0)}%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color:
+                      sla >= 90 ? AppColors.success : AppColors.warning,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                '· target 95%',
+                style: TextStyle(
+                    fontSize: 10, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: sla / 100,
+              minHeight: 7,
+              backgroundColor: AppColors.border,
+              valueColor: AlwaysStoppedAnimation(
+                  sla >= 90 ? AppColors.success : AppColors.warning),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PulseBadge extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _PulseBadge({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: TextStyle(
+                fontWeight: FontWeight.w800, color: color, fontSize: 15),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Team Summary Strip ───────────────────────────────────────────────────────
+
+class _TeamSummaryStrip extends StatelessWidget {
+  final List<ExecutiveStatus> statuses;
+  final int totalResolved;
+
+  const _TeamSummaryStrip(
+      {required this.statuses, required this.totalResolved});
+
+  @override
+  Widget build(BuildContext context) {
+    final avg = totalResolved / (statuses.isEmpty ? 1 : statuses.length);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          _StripStat(
+              value: '${statuses.length}',
+              label: 'On Shift',
+              color: AppColors.success),
+          _StripDivider(),
+          _StripStat(
+              value: '$totalResolved',
+              label: 'Resolved Today',
+              color: AppColors.info),
+          _StripDivider(),
+          _StripStat(
+              value: avg.toStringAsFixed(1),
+              label: 'Avg Per Exec',
+              color: AppColors.primary),
+        ],
+      ),
+    );
+  }
+}
+
+class _StripStat extends StatelessWidget {
+  final String value;
+  final String label;
+  final Color color;
+
+  const _StripStat(
+      {required this.value, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: color)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11, color: AppColors.textSecondary),
+              textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+}
+
+class _StripDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+      width: 1, height: 36, color: AppColors.border,
+      margin: const EdgeInsets.symmetric(horizontal: 8));
+}
+
+// ─── Analytics Summary Strip ──────────────────────────────────────────────────
+
+class _AnalyticsSummaryStrip extends StatelessWidget {
+  const _AnalyticsSummaryStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+        if (isMobile) {
+          return Column(
+            children: [
+              Row(children: [
+                Expanded(
+                    child: _AnalyticsBit(
+                        value: '79',
+                        label: 'This Month',
+                        badge: '+12%',
+                        color: AppColors.warning)),
+                Expanded(
+                    child: _AnalyticsBit(
+                        value: '2.3h',
+                        label: 'Avg Resolution',
+                        badge: '✓ 4h target',
+                        color: AppColors.success)),
+              ]),
+              Divider(height: 1, color: AppColors.border),
+              Row(children: [
+                Expanded(
+                    child: _AnalyticsBit(
+                        value: '34',
+                        label: 'After-Hours',
+                        badge: '43% of total',
+                        color: AppColors.error)),
+                Expanded(
+                    child: _AnalyticsBit(
+                        value: '16',
+                        label: 'Ext. Booked',
+                        badge: '5.8h avg',
+                        color: AppColors.info)),
+              ]),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(
+                child: _AnalyticsBit(
+                    value: '79',
+                    label: 'This Month',
+                    badge: '+12%',
+                    color: AppColors.warning)),
+            Container(width: 1, height: 48, color: AppColors.border),
+            Expanded(
+                child: _AnalyticsBit(
+                    value: '2.3h',
+                    label: 'Avg Resolution',
+                    badge: '✓ 4h target',
+                    color: AppColors.success)),
+            Container(width: 1, height: 48, color: AppColors.border),
+            Expanded(
+                child: _AnalyticsBit(
+                    value: '34',
+                    label: 'After-Hours',
+                    badge: '43% of total',
+                    color: AppColors.error)),
+            Container(width: 1, height: 48, color: AppColors.border),
+            Expanded(
+                child: _AnalyticsBit(
+                    value: '16',
+                    label: 'Ext. Booked',
+                    badge: '5.8h avg',
+                    color: AppColors.info)),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+class _AnalyticsBit extends StatelessWidget {
+  final String value;
+  final String label;
+  final String badge;
+  final Color color;
+
+  const _AnalyticsBit({
+    required this.value,
+    required this.label,
+    required this.badge,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.w800, color: color)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500)),
+          const SizedBox(height: 4),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(badge,
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: color)),
+          ),
         ],
       ),
     );
