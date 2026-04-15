@@ -264,12 +264,7 @@ class IncidentCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          left: BorderSide(color: _leftBorderColor, width: 4),
-          right: const BorderSide(color: AppColors.border),
-          top: const BorderSide(color: AppColors.border),
-          bottom: const BorderSide(color: AppColors.border),
-        ),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -278,136 +273,152 @@ class IncidentCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.all(compact ? 12 : 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                StatusDot(
-                  color: incident.status == IncidentStatus.resolved
-                      ? AppColors.success
-                      : incident.status == IncidentStatus.inProgress
-                          ? AppColors.info
-                          : AppColors.error,
-                  pulse: incident.status == IncidentStatus.inProgress,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    incident.id.substring(0, 8).toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppColors.textSecondary,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ),
-                PriorityBadge(priority: incident.priority),
-                const SizedBox(width: 8),
-                Text(
-                  incident.ageLabel,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '${incident.clientName} — ${incident.floor}',
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              incident.description,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            if (incident.status == IncidentStatus.resolved &&
-                incident.resolution != null) ...[
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.successBg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: AppColors.success.withOpacity(0.25)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.check_circle,
-                        size: 14, color: AppColors.success),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        incident.resolution!,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left accent bar
+              Container(width: 4, color: _leftBorderColor),
+              // Card content
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.all(compact ? 12 : 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          StatusDot(
+                            color: incident.status == IncidentStatus.resolved
+                                ? AppColors.success
+                                : incident.status == IncidentStatus.inProgress
+                                    ? AppColors.info
+                                    : AppColors.error,
+                            pulse: incident.status == IncidentStatus.inProgress,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              incident.id.substring(0, 8).toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textSecondary,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                          PriorityBadge(priority: incident.priority),
+                          const SizedBox(width: 8),
+                          Text(
+                            incident.ageLabel,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${incident.clientName} — ${incident.floor}',
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.success,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        incident.description,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      if (incident.status == IncidentStatus.resolved &&
+                          incident.resolution != null) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.successBg,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: AppColors.success.withOpacity(0.25)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.check_circle,
+                                  size: 14, color: AppColors.success),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  incident.resolution!,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.success,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (showActions && !compact) ...[
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            if (onTroubleshoot != null)
+                              OutlinedButton.icon(
+                                onPressed: onTroubleshoot,
+                                icon: const Icon(Icons.terminal, size: 16),
+                                label: const Text('Troubleshoot'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  textStyle: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            if (onAssign != null)
+                              OutlinedButton.icon(
+                                onPressed: onAssign,
+                                icon: const Icon(Icons.person_add, size: 16),
+                                label: const Text('Assign'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  textStyle: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            const Spacer(),
+                            if (onResolve != null)
+                              ElevatedButton.icon(
+                                onPressed: onResolve,
+                                icon: const Icon(Icons.check, size: 16),
+                                label: const Text('Resolve'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.success,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 10),
+                                  textStyle: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ],
-            if (showActions && !compact) ...[
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  if (onTroubleshoot != null)
-                    OutlinedButton.icon(
-                      onPressed: onTroubleshoot,
-                      icon: const Icon(Icons.terminal, size: 16),
-                      label: const Text('Troubleshoot'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        textStyle: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  const SizedBox(width: 8),
-                  if (onAssign != null)
-                    OutlinedButton.icon(
-                      onPressed: onAssign,
-                      icon: const Icon(Icons.person_add, size: 16),
-                      label: const Text('Assign'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        textStyle: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  const Spacer(),
-                  if (onResolve != null)
-                    ElevatedButton.icon(
-                      onPressed: onResolve,
-                      icon: const Icon(Icons.check, size: 16),
-                      label: const Text('Resolve'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.success,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                        textStyle: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );

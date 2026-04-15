@@ -2151,7 +2151,8 @@ class _NewBookingDialogState extends State<_NewBookingDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.success,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 44),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
                       ),
                       child: const Text('Confirm Booking'),
                     ),
